@@ -8,6 +8,7 @@ import org.apache.spark.api.java.Optional;
 import org.apache.spark.broadcast.Broadcast;
 import org.apache.spark.util.AccumulatorV2;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.io.TempDir;
 import scala.Tuple2;
 
 import java.io.IOException;
@@ -295,6 +296,7 @@ public class SparkRDDTest {
 
         // Verify the accumulator value
         assertEquals(10L,  sumAccumulator.value());
+        assertEquals(2.5,  sumAccumulator.avg());
     }
 
     @Test
@@ -366,12 +368,13 @@ public class SparkRDDTest {
     }
 
     @Test
-    public void testSaveActions() throws IOException {
+    public void testSaveActions(@TempDir Path tempDir) throws IOException {
         JavaRDD<String> rdd = sc.parallelize(Arrays.asList("apple", "banana", "cherry"));
 
         // Save as text file (use a temporary directory for testing)
-        Path outputPath = Files.createTempDirectory("spark-output").normalize();
-        String filePath = outputPath.toString();
+        String filePath = tempDir.toString();
+        System.out.println("File:"+filePath);
+        Files.delete(tempDir);
         rdd.saveAsTextFile(filePath);
 
         // Verify that the output file exists (basic test, implementation dependent)

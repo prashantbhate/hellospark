@@ -10,7 +10,7 @@ import java.util.Arrays;
 import java.util.List;
 
 public class Main {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
 
         String appName = "hello-spark";
         String master = "local";
@@ -28,16 +28,45 @@ public class Main {
             System.out.printf("totalLength:%d%n", totalLength);
 
 
+            printResultAndCount(lines);
             JavaRDD<String> words = lines.flatMap(line -> Arrays.asList(line.split("\\W+")).iterator());
+            printResultAndCount(words);
             JavaRDD<String> nonEmptyWords=words.filter(word -> !word.isBlank());
+            printResultAndCount(nonEmptyWords);
+
             JavaPairRDD<String, Integer> pairs = nonEmptyWords.mapToPair(s -> new Tuple2<>(s, 1));
+            printResultAndCount(pairs);
+
             JavaPairRDD<String, Integer> counts = pairs.reduceByKey(Integer::sum);
-            JavaPairRDD<Integer,String> sorted = counts.mapToPair(pair -> new Tuple2<>(pair._2, pair._1)).sortByKey(false);
+
+
+            printResultAndCount(counts);
+
+            printResultAndCount(counts.sortByKey());
+
+            JavaPairRDD<Integer, String> swappedPairs = counts
+                    .mapToPair(pair -> new Tuple2<>(pair._2, pair._1));
+
+            printResultAndCount(swappedPairs);
+            JavaPairRDD<Integer,String> sorted = swappedPairs.sortByKey(false);
+
+            printResultAndCount(sorted);
             List<Tuple2<Integer,String>> collect = sorted.take(5);
             for (Tuple2<Integer,String> t : collect) {
                 System.out.printf("(%s,%s)\n",t._2(),t._1());
             }
+
+            Thread.sleep(1000000L);
+
         }
 
     }
+
+    private static <T> void printResultAndCount(JavaRDD<T> lines) {
+        System.out.printf("count:%d, Result:%s %n",  lines.count(),lines.collect());
+    }
+    private static <T1,T2> void printResultAndCount(JavaPairRDD<T1,T2>  lines) {
+        System.out.printf("count:%d, Result:%s %n",  lines.count(),lines.collect());
+    }
+
 }
