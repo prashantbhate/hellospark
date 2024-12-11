@@ -1,5 +1,6 @@
 package org.example;
 
+import org.apache.spark.SparkConf;
 import org.apache.spark.sql.*;
 import org.apache.spark.sql.expressions.Window;
 import org.apache.spark.sql.expressions.WindowSpec;
@@ -21,7 +22,31 @@ public class SparkSQLTest {
 
     @BeforeAll
     static void setUp() {
+        SparkConf conf = new SparkConf().setMaster("local[8]").setAppName("RDDTest")
+        // Disable adaptive query execution
+                .set("spark.sql.adaptive.enabled", "false")
+                .set("spark.sql.adaptive.skewJoin.enabled", "false")
+                .set("spark.sql.broadcastTimeout", "36000")
+                .set("spark.sql.codegen.wholeStage", "false")
+                // Disable broadcast joins
+                .set("spark.sql.autoBroadcastJoinThreshold", "-1")
+
+                // Increase shuffle partitions for more detailed job view
+                .set("spark.sql.shuffle.partitions", "200")
+
+                // Disable in-memory columnar storage compression
+                .set("spark.sql.inMemoryColumnarStorage.compressed", "false")
+
+                // Reduce batch size for columnar storage
+                .set("spark.sql.inMemoryColumnarStorage.batchSize", "1")
+
+                // Disable query result caching
+                .set("spark.sql.cache.serializedCachedBatch", "false")
+
+                // Force explanation of logical and physical plans
+                .set("spark.sql.planChangeLog.level", "WARN");
         sparkSession = SparkSession.builder()
+                .config(conf)
                 .appName("SparkSQLTest")
                 .master("local[8]")
                 .getOrCreate();

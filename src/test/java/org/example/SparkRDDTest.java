@@ -29,7 +29,31 @@ public class SparkRDDTest {
     @BeforeAll
     public static void setUp() {
         // Set up the Spark context
-        SparkConf conf = new SparkConf().setMaster("local[8]").setAppName("RDDTest");
+        SparkConf conf = new SparkConf().setMaster("local[8]").setAppName("RDDTest")
+
+                // Disable adaptive query execution
+                .set("spark.sql.adaptive.enabled", "false")
+                .set("spark.sql.adaptive.skewJoin.enabled", "false")
+                .set("spark.sql.broadcastTimeout", "36000")
+                .set("spark.sql.codegen.wholeStage", "false")
+                // Disable broadcast joins
+                .set("spark.sql.autoBroadcastJoinThreshold", "-1")
+
+                // Increase shuffle partitions for more detailed job view
+                .set("spark.sql.shuffle.partitions", "200")
+
+                // Disable in-memory columnar storage compression
+                .set("spark.sql.inMemoryColumnarStorage.compressed", "false")
+
+                // Reduce batch size for columnar storage
+                .set("spark.sql.inMemoryColumnarStorage.batchSize", "1")
+
+                // Disable query result caching
+                .set("spark.sql.cache.serializedCachedBatch", "false")
+
+                // Force explanation of logical and physical plans
+                .set("spark.sql.planChangeLog.level", "WARN");
+
         sc = new JavaSparkContext(conf);
     }
 
@@ -42,8 +66,9 @@ public class SparkRDDTest {
             sc.stop();
         }
     }
+
     @AfterEach
-    public void afterEach(){
+    public void afterEach() {
 //        sleep();
     }
 
@@ -51,7 +76,7 @@ public class SparkRDDTest {
     public void setUp(TestInfo testInfo) {
         // Get the name of the current test method
         String methodName = testInfo.getDisplayName();
-        sc.setJobGroup("RDDTest",methodName);
+        sc.setJobGroup("RDDTest", methodName);
         System.out.println("About to run test method: " + methodName);
     }
 
@@ -209,7 +234,7 @@ public class SparkRDDTest {
 
 
         String msg = " %d == %d".formatted(sampledCount, sampledCount);
-        assertTrue(sampledCount >= 0 && sampledCount <= unSampledCount , msg);
+        assertTrue(sampledCount >= 0 && sampledCount <= unSampledCount, msg);
 
     }
 
@@ -283,6 +308,7 @@ public class SparkRDDTest {
         int sum = rdd.reduce(Integer::sum);
         assertNotEquals(sum, counter[0]);
     }
+
     @Test
     public void testAccumulator() {
         // Create an accumulator for summing numbers
@@ -295,8 +321,8 @@ public class SparkRDDTest {
         rdd.foreach(sumAccumulator::add);
 
         // Verify the accumulator value
-        assertEquals(10L,  sumAccumulator.value());
-        assertEquals(2.5,  sumAccumulator.avg());
+        assertEquals(10L, sumAccumulator.value());
+        assertEquals(2.5, sumAccumulator.avg());
     }
 
     @Test
@@ -373,7 +399,7 @@ public class SparkRDDTest {
 
         // Save as text file (use a temporary directory for testing)
         String filePath = tempDir.toString();
-        System.out.println("File:"+filePath);
+        System.out.println("File:" + filePath);
         Files.delete(tempDir);
         rdd.saveAsTextFile(filePath);
 
@@ -381,7 +407,6 @@ public class SparkRDDTest {
         java.io.File outputDir = new java.io.File(filePath);
         assertTrue(outputDir.exists() && outputDir.isDirectory());
     }
-
 
 
     @Test
