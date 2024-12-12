@@ -1,3 +1,11 @@
-name;age;job
-Jorge;30;Developer
-Bob;32;Developer
+name;age;job;hire_date
+Sarah;28;;10-2023-15
+Paul;;;05-2024-12
+Laura;35;;
+John;;;
+Emma;;Developer;
+Lucas;27;Designer;
+Mia;22;Developer;11-2024-01
+Oliver;40;Manager;07-2023-20
+Sophia;;Manager;
+Liam;30;;02-2024-18

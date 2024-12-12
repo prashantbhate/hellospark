@@ -1,3 +1,4 @@
 {"name":"Michael"}
-{"name":"Andy", "age":30}
-{"name":"Justin", "age":19}
+{"name":"Justin", "age":"19","hire_date": "10-2024-30"}
+{"name":"Andy", "age":"30"}
+{"name":"Larry", "age":"30","hire_date": "10-2024-30"}

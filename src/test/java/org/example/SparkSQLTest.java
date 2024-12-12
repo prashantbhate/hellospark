@@ -1,6 +1,7 @@
 package org.example;
 
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.function.MapFunction;
 import org.apache.spark.sql.*;
 import org.apache.spark.sql.expressions.Window;
 import org.apache.spark.sql.expressions.WindowSpec;
@@ -8,12 +9,13 @@ import org.apache.spark.sql.types.*;
 import org.junit.jupiter.api.*;
 import scala.collection.Seq;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.sql.Date;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 import static org.apache.spark.sql.functions.col;
+import static org.apache.spark.sql.functions.to_date;
+import static org.example.Person.mapper;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class SparkSQLTest {
@@ -23,7 +25,7 @@ public class SparkSQLTest {
     @BeforeAll
     static void setUp() {
         SparkConf conf = new SparkConf().setMaster("local[8]").setAppName("RDDTest")
-        // Disable adaptive query execution
+                // Disable adaptive query execution
                 .set("spark.sql.adaptive.enabled", "false")
                 .set("spark.sql.adaptive.skewJoin.enabled", "false")
                 .set("spark.sql.broadcastTimeout", "36000")
@@ -44,7 +46,8 @@ public class SparkSQLTest {
                 .set("spark.sql.cache.serializedCachedBatch", "false")
 
                 // Force explanation of logical and physical plans
-                .set("spark.sql.planChangeLog.level", "WARN");
+//                .set("spark.sql.planChangeLog.level", "WARN")
+                ;
         sparkSession = SparkSession.builder()
                 .config(conf)
                 .appName("SparkSQLTest")
@@ -65,7 +68,7 @@ public class SparkSQLTest {
     public void setUp(TestInfo testInfo) {
         // Get the name of the current test method
         String methodName = testInfo.getDisplayName();
-        sparkSession.sparkContext().setJobGroup("SparkSQLTest",methodName,true);
+        sparkSession.sparkContext().setJobGroup("SparkSQLTest", methodName, true);
         System.out.println("About to run test method: " + methodName);
     }
 
@@ -76,6 +79,7 @@ public class SparkSQLTest {
             throw new RuntimeException(e);
         }
     }
+
     @Test
     void testCreateDataFrameAndSQLQuery() {
         Dataset<Row> df = sparkSession.createDataFrame(
@@ -160,10 +164,10 @@ public class SparkSQLTest {
         df.createOrReplaceTempView("employees");
 
         Dataset<Row> result = sparkSession.sql("""
-            SELECT department, name, salary,
-                   RANK() OVER (PARTITION BY department ORDER BY salary DESC) as rank
-            FROM employees
-        """);
+                    SELECT department, name, salary,
+                           RANK() OVER (PARTITION BY department ORDER BY salary DESC) as rank
+                    FROM employees
+                """);
 
         assertEquals(3, result.count());
         assertEquals(1, result.collectAsList().get(0).getInt(3)); // Alice's rank in HR
@@ -402,6 +406,71 @@ public class SparkSQLTest {
                 assertEquals(450.0, totalSales, 0.001);
             }
         }
+    }
+
+    @Test
+    public void testCSV_df() {
+        String path = "src/main/resources/people.csv";
+
+// Reading CSV file without any options
+        System.out.println("============= Reading CSV file without options =========");
+        Dataset<Row> df1 = sparkSession.read().csv(path);
+        df1.printSchema();
+        df1.show();
+
+// Reading CSV file with custom delimiter
+        System.out.println("============= Reading CSV file with custom delimiter ';' =========");
+        Dataset<Row> df2 = sparkSession.read().option("delimiter", ";").csv(path);
+        df2.printSchema();
+        df2.show();
+
+// Reading CSV file with custom delimiter and header
+        System.out.println("============= Reading CSV file with custom delimiter ';' and header =========");
+        Dataset<Row> csvDf = sparkSession.read()
+                .option("delimiter", ";")
+                .option("header", "true")
+                .csv(path);
+        csvDf.printSchema();
+        csvDf.show();
+
+// Reading CSV file with custom delimiter, header, and adding new column 'hireDate' with date format
+        System.out.println("============= Adding new column 'hireDate' with date format =========");
+        Dataset<Row> df4 = csvDf.withColumn("hireDate", to_date(col("hire_date"), "MM-yyyy-dd"));
+        df4.printSchema();
+        df4.show();
+        System.out.println("-hireDate-");
+        df4.foreach((Row r) -> {
+            Object hireDate = r.getAs("hireDate");
+            System.out.println(hireDate);
+        });
+
+// Mapping CSV file to Dataset of Person objects
+        System.out.println("============= Selecting cols for Mapping CSV file to Dataset of Person objects =========");
+        Dataset<Row> selectedDf = csvDf.select(col("name"), col("age"), col("hire_date"));
+        selectedDf.printSchema();
+        selectedDf.show();
+
+        System.out.println("============= Mapping CSV file to Dataset of Person objects (use java.util.Date) =========");
+        Dataset<Person> personDataset = selectedDf
+                .map(mapper, Encoders.bean(Person.class));
+        personDataset.printSchema();
+        personDataset.show();
+        personDataset.foreach((Person p) -> System.out.println("Person:" + p));
+
+// Reading CSV file with custom delimiter, header, and adding 'age' and 'hireSqlDate' columns
+        System.out.println("============= Replacing 'age' as int and 'hireSqlDate' as date columns =========");
+        Dataset<Row> df5 = csvDf.withColumn("age", col("age").cast("int"))
+                .withColumn("hireSqlDate", to_date(col("hire_date"), "MM-yyyy-dd").as("hireSqlDate"))
+                .drop("hire_date");
+        df5.printSchema();
+        df5.show();
+
+// Mapping CSV file to Dataset of User objects
+        System.out.println("============= Mapping CSV file to Dataset of User objects =========");
+        Dataset<User> userDataset = df5.as(Encoders.bean(User.class));
+        userDataset.printSchema();
+        userDataset.show();
+        userDataset.foreach((User p) -> System.out.println("User:" + p));
     }
 
 }
